@@ -14,8 +14,8 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'nistula-technical-assessment' });
 });
 
-// Placeholder for webhook routes — wired up in Commit 2
-// app.use('/webhook', require('./routes/webhook'));
+// Webhook routes
+app.use('/webhook', require('./routes/webhook'));
 
 // Start the server
 app.listen(PORT, () => {
