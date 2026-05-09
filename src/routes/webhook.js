@@ -1,6 +1,7 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { classifyMessage } = require('../services/classifier');
+const { getDraftedReply } = require('../services/claudeService');
 
 const router = express.Router();
 
@@ -10,9 +11,10 @@ const VALID_SOURCES = ['whatsapp', 'booking_com', 'airbnb', 'instagram', 'direct
 /**
  * POST /webhook/message
  * Accepts a raw guest message from any hospitality channel,
- * normalizes it into a unified schema, and returns it with a UUID.
+ * normalizes it, classifies the query type, gets a Claude-drafted reply,
+ * and returns a structured JSON response.
  */
-router.post('/message', (req, res) => {
+router.post('/message', async (req, res) => {
   const { source, guest_name, message, timestamp, booking_ref, property_id } = req.body;
 
   // --- Basic validation ---
@@ -40,7 +42,19 @@ router.post('/message', (req, res) => {
     query_type: classifyMessage(message)
   };
 
-  return res.status(200).json(normalizedMessage);
+  // --- Get drafted reply from Claude ---
+  try {
+    const drafted_reply = await getDraftedReply(normalizedMessage);
+    return res.status(200).json({
+      ...normalizedMessage,
+      drafted_reply
+    });
+  } catch (err) {
+    return res.status(502).json({
+      error: 'Failed to get reply from Claude API',
+      detail: err.message
+    });
+  }
 });
 
 module.exports = router;
