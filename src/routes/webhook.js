@@ -2,6 +2,7 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { classifyMessage } = require('../services/classifier');
 const { getDraftedReply } = require('../services/claudeService');
+const { calculateConfidence, determineAction } = require('../utils/confidence');
 
 const router = express.Router();
 
@@ -12,7 +13,7 @@ const VALID_SOURCES = ['whatsapp', 'booking_com', 'airbnb', 'instagram', 'direct
  * POST /webhook/message
  * Accepts a raw guest message from any hospitality channel,
  * normalizes it, classifies the query type, gets a Claude-drafted reply,
- * and returns a structured JSON response.
+ * scores confidence, and returns a structured JSON response.
  */
 router.post('/message', async (req, res) => {
   const { source, guest_name, message, timestamp, booking_ref, property_id } = req.body;
@@ -45,9 +46,18 @@ router.post('/message', async (req, res) => {
   // --- Get drafted reply from Claude ---
   try {
     const drafted_reply = await getDraftedReply(normalizedMessage);
+
+    // --- Calculate confidence score and action ---
+    const confidence_score = calculateConfidence(normalizedMessage);
+    const action = determineAction(confidence_score, normalizedMessage.query_type);
+
+    // --- Return final structured response ---
     return res.status(200).json({
-      ...normalizedMessage,
-      drafted_reply
+      message_id: normalizedMessage.message_id,
+      query_type: normalizedMessage.query_type,
+      drafted_reply,
+      confidence_score,
+      action
     });
   } catch (err) {
     return res.status(502).json({
