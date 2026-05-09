@@ -1,5 +1,6 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
+const { classifyMessage } = require('../services/classifier');
 
 const router = express.Router();
 
@@ -36,7 +37,7 @@ router.post('/message', (req, res) => {
     timestamp,
     booking_ref: booking_ref || null,
     property_id,
-    query_type: null // populated in Commit 3
+    query_type: classifyMessage(message)
   };
 
   return res.status(200).json(normalizedMessage);
